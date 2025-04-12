@@ -42,14 +42,19 @@ class MoELoadImbalanceMetric(MoEMetric):
         self.top_k = top_k
         self.batch_size_per_expert: Optional[torch.Tensor] = None
         self.reduction = ReduceType.max
+        self.expert_scores = None
 
     @torch.no_grad()
     def update(
         self,
         *,
+        expert_scores: torch.Tensor,
         batch_size_per_expert: torch.Tensor,
         **kwargs,
     ):
+        # from ipdb import set_trace as bp
+        # bp()
+        self.expert_scores = expert_scores
         del kwargs
         if self.batch_size_per_expert is None:
             self.batch_size_per_expert = torch.zeros_like(batch_size_per_expert)
@@ -70,7 +75,13 @@ class MoELoadImbalanceMetric(MoEMetric):
 
         if reset:
             self.reset()
-
+        # from ipdb import set_trace as bp; bp()
+        # take mean of the expert scores over the first dimension
+        # self.expert_scores = self.expert_scores.mean(dim=0)
+        # create a dict with expert index and expert score
+        # expert_scores_dict = {f"expert_{i}": (self.expert_scores[i], self.reduction) for i in range(self.num_experts)}
+        # print("expert_scores_dict: ", expert_scores_dict)
+        # from ipdb import set_trace as bp; bp()
         return {"load imbalance": (load_imbalance, self.reduction)}
 
     def reset(self):

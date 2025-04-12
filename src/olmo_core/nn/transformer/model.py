@@ -897,10 +897,17 @@ class MoETransformer(Transformer):
                     loss_val = DTensor.from_local(loss_val.unsqueeze(0), self._tp_mesh, (Shard(0),))
                     loss_val = loss_val.redistribute(placements=(Replicate(),)).mean()
 
-                if loss_name in out:
-                    out[loss_name] += loss_val
-                else:
+                # swj change
+                if loss_name.startswith("expert_"):
+                    # from ipdb import set_trace as bp; bp()
                     out[loss_name] = loss_val
+                else:
+                    if loss_name in out:
+                        out[loss_name] += loss_val
+                    else:
+                        out[loss_name] = loss_val
+        # print("out: ", out)
+        # from ipdb import set_trace as bp; bp()
         return out
 
     def reset_auxiliary_losses(self):
@@ -913,6 +920,7 @@ class MoETransformer(Transformer):
         out: Dict[str, Tuple[torch.Tensor, Optional["ReduceType"]]] = {}
         for block_idx, block in self.blocks.items():
             block = cast(MoETransformerBlock, block)
+            # from ipdb import set_trace as bp; bp()
             block_metrics = block.compute_metrics(total_bz, reset=reset)
             for metric_name, metric_val in block_metrics.items():
                 out[f"block {int(block_idx):02d}/{metric_name}"] = metric_val

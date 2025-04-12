@@ -351,11 +351,17 @@ class TransformerTrainModule(TrainModule):
                     z_batch_loss += get_local_tensor(z_loss.detach())
                     del z_loss
 
+                # from ipdb import set_trace as bp; bp()
                 # Optionally get model auxiliary losses and update the total batch auxiliary losses.
                 auxiliary_losses = self.model.compute_auxiliary_losses(
                     batch_num_tokens_for_loss, reset=True
                 )
                 for loss_name, loss_val in auxiliary_losses.items():
+                    # from ipdb import set_trace as bp; bp()
+                    # swj
+                    if loss_name.startswith("expert_"):
+                        auxiliary_batch_losses[loss_name] = loss_val
+                        continue
                     loss += loss_val
                     loss_val = get_local_tensor(loss_val.detach())
                     if loss_name in auxiliary_batch_losses:
@@ -407,6 +413,7 @@ class TransformerTrainModule(TrainModule):
             batch_num_tokens_for_loss,
             reset=True,
         ).items():
+            # from ipdb import set_trace as bp; bp()
             self.record_metric(
                 metric_name,
                 metric_val,

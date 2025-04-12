@@ -212,7 +212,9 @@ class MoEBase(nn.Module):
         self, total_bz: Union[int, float, torch.Tensor], reset: bool = True
     ) -> Dict[str, torch.Tensor]:
         out: Dict[str, torch.Tensor] = {}
+        # from ipdb import set_trace as bp; bp()
         for loss_fn in self.losses:
+            # from ipdb import set_trace as bp; bp()
             out.update(loss_fn.compute(total_bz, reset=reset))
         return out
 
@@ -390,6 +392,9 @@ class MoE(MoEBase):
             capacity_factor=capacity_factor,
             cache=cache,
         )
+
+        # Initialize self.losses as an empty list if no losses are provided
+        self.losses = self.losses if self.losses is not None else []
 
     def _init_parallel_mlp(  # type: ignore[override]
         self,

@@ -41,6 +41,7 @@ class MoELoadBalancingLoss(MoELoss):
         self.num_experts = num_experts
         self.top_k = top_k
         self.loss: Optional[torch.Tensor] = None
+        self.expert_scores: Optional[torch.Tensor] = None
 
     def update(
         self,
@@ -52,6 +53,7 @@ class MoELoadBalancingLoss(MoELoss):
         del kwargs
         # shape: (batch_size, num_experts) -> (num_experts,)
         expert_scores = expert_scores.mean(dim=0)
+        self.expert_scores = expert_scores
         loss = torch.dot(batch_size_per_expert.type_as(expert_scores), expert_scores)
         if self.loss is None:
             self.loss = loss
@@ -63,6 +65,7 @@ class MoELoadBalancingLoss(MoELoss):
     ) -> Dict[str, torch.Tensor]:
         del kwargs
         if self.loss is None:
+            # from ipdb import set_trace as bp; bp()
             raise RuntimeError(
                 f"'{self.__class__.__name__}.update()' needs to be called before '.compute()'"
             )
@@ -70,7 +73,16 @@ class MoELoadBalancingLoss(MoELoss):
         lb_loss = scale * self.loss
         if reset:
             self.reset()
-        return {"load balancing loss": lb_loss}
+        # from ipdb import set_trace as bp; bp()
+        expert_scores_dict = {f"expert_{i}": self.expert_scores[i] for i in range(self.num_experts)}
+        # print("expert_scores_dict: ", expert_scores_dict)
+        # bp()
+        # from ipdb import set_trace as bp; bp()
+        final_dict = {"load balancing loss": lb_loss}
+        final_dict.update(expert_scores_dict)
+        # print("final_dict: ", final_dict)
+        # from ipdb import set_trace as bp; bp()
+        return final_dict
 
     def reset(self):
         self.loss = None
@@ -102,7 +114,7 @@ class MoERouterZLoss(MoELoss):
         lb_loss = scale * self.loss
         if reset:
             self.reset()
-        return {"router Z loss": lb_loss}
+        return {"router Z loss": lb_loss, }
 
     def reset(self):
         self.loss = None

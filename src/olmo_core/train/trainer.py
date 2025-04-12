@@ -1155,6 +1155,8 @@ class Trainer:
             for callback in self._iter_callbacks():
                 callback.post_step()
 
+            # from ipdb import set_trace as bp
+            # bp()
             if first_batch or self.global_step % self.metrics_collect_interval == 0:
                 self._log_metrics()
                 if torch.cuda.is_available():

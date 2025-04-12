@@ -43,6 +43,7 @@ def get_root_dir(cluster: str) -> str:
         root_dir = "gs://ai2-llm"
     elif "local" in cluster:
         root_dir = "gs://ai2-llm"
+
     return root_dir
 
 
