@@ -128,7 +128,7 @@ class MoELoadBalancingLoss(MoELoss):
         current_scale = self.get_scale(step, self.loss_weight)
         # make current_scale a tensor
         current_scale = torch.tensor(current_scale)
-        print("step: ", step, "current_scale: ", current_scale)
+        # print("step: ", step, "current_scale: ", current_scale)
         lb_loss = current_scale * self.loss
         if reset:
             self.reset()

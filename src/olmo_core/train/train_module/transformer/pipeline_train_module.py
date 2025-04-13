@@ -555,7 +555,7 @@ class TransformerPipelineTrainModule(TrainModule):
                 previous_stage_aux_loss = None
 
             # Get auxiliary losses.
-            print("step: ", self.trainer.global_step)
+            print("self.trainer.global_step: ", self.trainer.global_step)
             for name, value in model.compute_auxiliary_losses(
                 total_bz=batch_num_tokens_for_loss, reset=True, step=self.trainer.global_step
             ).items():
