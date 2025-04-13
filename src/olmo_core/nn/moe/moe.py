@@ -209,13 +209,13 @@ class MoEBase(nn.Module):
             )
 
     def compute_losses(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0
     ) -> Dict[str, torch.Tensor]:
         out: Dict[str, torch.Tensor] = {}
         # from ipdb import set_trace as bp; bp()
         for loss_fn in self.losses:
             # from ipdb import set_trace as bp; bp()
-            out.update(loss_fn.compute(total_bz, reset=reset))
+            out.update(loss_fn.compute(total_bz, reset=reset, step=step))
         return out
 
     def reset_losses(self):

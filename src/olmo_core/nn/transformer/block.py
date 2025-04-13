@@ -351,9 +351,9 @@ class MoETransformerBlock(TransformerBlockBase):
         return self._tp_enabled
 
     def compute_losses(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0
     ) -> Dict[str, torch.Tensor]:
-        return self.feed_forward_moe.compute_losses(total_bz, reset=reset)
+        return self.feed_forward_moe.compute_losses(total_bz, reset=reset, step=step)
 
     def reset_losses(self):
         self.feed_forward_moe.reset_losses()

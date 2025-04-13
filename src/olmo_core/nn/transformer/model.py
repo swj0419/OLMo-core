@@ -142,7 +142,7 @@ class Transformer(nn.Module):
         del block
 
     def compute_auxiliary_losses(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0
     ) -> Dict[str, torch.Tensor]:
         # NOTE: if tensor parallelism is enabled you'll need to distribute loss tensors as DTensors.
         # See how the MoETransformer handles that for an example.
@@ -883,12 +883,12 @@ class MoETransformer(Transformer):
             )
 
     def compute_auxiliary_losses(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0
     ) -> Dict[str, torch.Tensor]:
         out: Dict[str, torch.Tensor] = {}
         for block in self.blocks.values():
             for loss_name, loss_val in (
-                cast(MoETransformerBlock, block).compute_losses(total_bz, reset=reset).items()
+                cast(MoETransformerBlock, block).compute_losses(total_bz, reset=reset, step=step).items()
             ):
                 loss_val = loss_val.div(self.n_layers)
 

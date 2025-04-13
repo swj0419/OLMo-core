@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Dict, Optional, Union
 from torch.nn import functional as F
 import torch
+import math
 
 __all__ = ["MoELoss", "MoELoadBalancingLoss", "MoERouterZLoss"]
 
@@ -43,6 +44,11 @@ class MoELoadBalancingLoss(MoELoss):
         self.loss: Optional[torch.Tensor] = None
         self.expert_scores: Optional[torch.Tensor] = None
 
+        # swj
+        self.decay_steps: int = 200
+        self.decay_style: str = "linear"
+        self.min_scale: float = 0.0
+
     def update(
         self,
         *,
@@ -69,10 +75,48 @@ class MoELoadBalancingLoss(MoELoss):
         else:
             self.loss += loss
 
+    # swj change
+    def get_scale(self, step: int, loss_weight: float) -> float:
+        """
+        Calculate the current scale factor based on training step.
+        
+        Args:
+            step: Current training step
+            
+        Returns:
+            Current scale for the load balancing loss
+        """
+        if step >= self.decay_steps:
+            return self.min_scale
+        
+        progress = step / self.decay_steps
+        
+        if self.decay_style == "linear":
+            # Linear decay from initial_scale to min_scale
+            scale = loss_weight - (loss_weight - self.min_scale) * progress
+        
+        elif self.decay_style == "cosine":
+            # Cosine decay from initial_scale to min_scale
+            cosine_decay = 0.5 * (1 + math.cos(math.pi * progress))
+            scale = self.min_scale + (loss_weight - self.min_scale) * cosine_decay
+        
+        elif self.decay_style == "exponential":
+            # Exponential decay from initial_scale to min_scale
+            decay_rate = -math.log(self.min_scale / loss_weight) if self.min_scale > 0 else 5.0
+            scale = loss_weight * math.exp(-decay_rate * progress)
+            scale = max(scale, self.min_scale)
+        
+        else:
+            raise ValueError(f"Unknown decay style: {self.decay_style}")
+        
+        return scale
+
+
     def compute(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, **kwargs
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0, **kwargs
     ) -> Dict[str, torch.Tensor]:
         del kwargs
+
         if self.loss is None:
             # from ipdb import set_trace as bp; bp()
             raise RuntimeError(
@@ -80,11 +124,13 @@ class MoELoadBalancingLoss(MoELoss):
             )
         # swj change:
         # scale = (self.num_experts * self.loss_weight) / (total_bz * self.top_k)
-        scale = self.loss_weight
-        lb_loss = scale * self.loss
+        # from ipdb import set_trace as bp; bp()
+        current_scale = self.get_scale(step, self.loss_weight)
+        # print("step: ", step, "current_scale: ", current_scale)
+        lb_loss = current_scale * self.loss
         if reset:
             self.reset()
-        # from ipdb import set_trace as bp; bp()
+
         expert_scores_dict = {f"expert_{i}": self.expert_scores[i] for i in range(self.num_experts)}
         # print("expert_scores_dict: ", expert_scores_dict)
 
