@@ -78,14 +78,16 @@ class MoELoadBalancingLoss(MoELoss):
             raise RuntimeError(
                 f"'{self.__class__.__name__}.update()' needs to be called before '.compute()'"
             )
-        scale = (self.num_experts * self.loss_weight) / (total_bz * self.top_k)
+        # swj change:
+        # scale = (self.num_experts * self.loss_weight) / (total_bz * self.top_k)
+        scale = self.loss_weight
         lb_loss = scale * self.loss
         if reset:
             self.reset()
         # from ipdb import set_trace as bp; bp()
         expert_scores_dict = {f"expert_{i}": self.expert_scores[i] for i in range(self.num_experts)}
         # print("expert_scores_dict: ", expert_scores_dict)
-        # bp()
+
         # from ipdb import set_trace as bp; bp()
         final_dict = {"load balancing loss": lb_loss}
         final_dict.update(expert_scores_dict)
