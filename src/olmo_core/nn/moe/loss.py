@@ -132,11 +132,13 @@ class MoELoadBalancingLoss(MoELoss):
             self.reset()
 
         expert_scores_dict = {f"expert_{i}": self.expert_scores[i] for i in range(self.num_experts)}
+        expert_scale = {f"expert_scale": current_scale}
         # print("expert_scores_dict: ", expert_scores_dict)
 
         # from ipdb import set_trace as bp; bp()
         final_dict = {"load balancing loss": lb_loss}
         final_dict.update(expert_scores_dict)
+        final_dict.update(expert_scale)
         # print("final_dict: ", final_dict)
         # from ipdb import set_trace as bp; bp()
         return final_dict
