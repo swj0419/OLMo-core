@@ -887,6 +887,7 @@ class MoETransformer(Transformer):
     ) -> Dict[str, torch.Tensor]:
         out: Dict[str, torch.Tensor] = {}
         for block in self.blocks.values():
+            print("model step: ", step)
             for loss_name, loss_val in (
                 cast(MoETransformerBlock, block).compute_losses(total_bz, reset=reset, step=step).items()
             ):
