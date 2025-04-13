@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from typing import Dict, Optional, Union
-
+from torch.nn import functional as F
 import torch
 
 __all__ = ["MoELoss", "MoELoadBalancingLoss", "MoERouterZLoss"]
@@ -54,7 +54,16 @@ class MoELoadBalancingLoss(MoELoss):
         # shape: (batch_size, num_experts) -> (num_experts,)
         expert_scores = expert_scores.mean(dim=0)
         self.expert_scores = expert_scores
-        loss = torch.dot(batch_size_per_expert.type_as(expert_scores), expert_scores)
+
+        # original:
+        # loss = torch.dot(batch_size_per_expert.type_as(expert_scores), expert_scores)
+        # swj change:
+        probs = F.softmax(expert_scores, dim=0)
+        log_probs = torch.log(probs + 1e-10)  # Add small epsilon to avoid log(0)
+        neg_entropy = torch.sum(probs * log_probs)
+        loss = neg_entropy
+        # from ipdb import set_trace as bp; bp()
+        
         if self.loss is None:
             self.loss = loss
         else:
