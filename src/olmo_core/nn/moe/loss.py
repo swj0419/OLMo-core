@@ -113,7 +113,7 @@ class MoELoadBalancingLoss(MoELoss):
 
 
     def compute(
-        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0, **kwargs
+        self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: Optional[int] = None, **kwargs
     ) -> Dict[str, torch.Tensor]:
         del kwargs
 
