@@ -691,7 +691,7 @@ class Trainer:
                 }
         
         # swj change
-        # self.data_loader.load_state_dict(state_dict["data_loader"])
+        self.data_loader.load_state_dict(state_dict["data_loader"])
         self.global_train_tokens_seen = state_dict["global_train_tokens_seen"]
         self.global_step = state_dict["global_step"]
         self.epoch = state_dict["epoch"]
