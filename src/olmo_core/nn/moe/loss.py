@@ -45,7 +45,7 @@ class MoELoadBalancingLoss(MoELoss):
         self.expert_scores: Optional[torch.Tensor] = None
 
         # swj
-        self.decay_steps: int = 2000
+        self.decay_steps: int = 12000
         self.decay_style: str = "linear"
         self.min_scale: float = 0.0
 
