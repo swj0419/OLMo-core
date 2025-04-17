@@ -270,10 +270,13 @@ class MoERouter(nn.Module):
 
         # shape: (batch_size * seq_len, num_experts)
         logits = self.get_expert_logits(x).view(-1, self.num_experts)
-
+        
+        # from ipdb import set_trace as bp
+        # bp()
         # shape: (batch_size * seq_len, num_experts)
+        print("average logits: ", torch.mean(logits[:, 0], dim=0))
+        logits[:, 0] += 0.01
         scores = logits.softmax(dim=-1)
-
         # shape: (batch_size * seq_len, top_k)
         expert_weights, expert_indices = self.get_top_k(scores)
 
