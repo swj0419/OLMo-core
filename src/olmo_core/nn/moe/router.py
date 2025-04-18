@@ -275,7 +275,7 @@ class MoERouter(nn.Module):
         # bp()
         # shape: (batch_size * seq_len, num_experts)
         print("average logits: ", torch.mean(logits[:, 0], dim=0))
-        logits[:, 0] += 0.01
+        logits[:, 0] += 0.1
         scores = logits.softmax(dim=-1)
         # shape: (batch_size * seq_len, top_k)
         expert_weights, expert_indices = self.get_top_k(scores)
