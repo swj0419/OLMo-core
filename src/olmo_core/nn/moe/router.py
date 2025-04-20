@@ -289,8 +289,8 @@ class MoERouter(nn.Module):
         # print("average logits: ", torch.mean(logits[:, 0], dim=0))
         # logits[:, 0] += 0.1
         # swj: add bias for expert 2
-        print("logits: ", logits)
-        print("self.expert2_bias: ", self.expert2_bias)
+        # print("logits: ", logits)
+        # print("self.expert2_bias: ", self.expert2_bias)
         constrained_bias = torch.minimum(self.expert2_bias, torch.tensor(0.0, device=self.expert2_bias.device))
         logits[:, 1] += constrained_bias
 
