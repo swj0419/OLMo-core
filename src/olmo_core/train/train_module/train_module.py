@@ -346,6 +346,7 @@ class BasicTrainModule(TrainModule):
         # record expert2_bias 
         for name, param in self.model.named_parameters():
             if "expert2_bias" in name:
+                print(f"name: {name}")
                 # from ipdb import set_trace as bp
                 # bp()
                 print(f"{name}: {param.detach()}")

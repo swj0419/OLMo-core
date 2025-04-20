@@ -398,6 +398,7 @@ class TransformerPipelineTrainModule(TrainModule):
 
         # record expert2_bias 
         for name, param in self.model.named_parameters():
+            print(f"name: {name}")
             if "expert2_bias" in name:
                 # from ipdb import set_trace as bp
                 # bp()
