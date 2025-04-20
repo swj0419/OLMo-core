@@ -396,6 +396,19 @@ class TransformerPipelineTrainModule(TrainModule):
             ).items():
                 self.record_metric(metric_name, metric_val, reduction, namespace="train")
 
+        # record expert2_bias 
+        for name, param in self.model.named_parameters():
+            if "expert2_bias" in name:
+                # from ipdb import set_trace as bp
+                # bp()
+                print(f"{name}: {param.detach()}")
+                self.record_metric(
+                    name,
+                    param.detach(),
+                    ReduceType.mean,
+                    namespace="train",
+                )
+
     def reduce_send_recv(self, x: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.pp_group_rank == self.pp_final_stage_rank:
             assert x is not None
