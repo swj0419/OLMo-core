@@ -402,6 +402,7 @@ class TransformerTrainModule(TrainModule):
             if "expert2_bias" in name:
                 # from ipdb import set_trace as bp
                 # bp()
+                print(f"{name}: {param.detach()}")
                 self.record_metric(
                     name,
                     param.detach(),
