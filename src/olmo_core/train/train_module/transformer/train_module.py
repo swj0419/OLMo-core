@@ -395,6 +395,19 @@ class TransformerTrainModule(TrainModule):
             self.optim.latest_loss = ce_batch_loss
         else:
             self.record_ce_loss(ce_batch_loss, ReduceType.mean)
+
+
+        # record expert2_bias 
+        for name, param in self.model.named_parameters():
+            if "expert2_bias" in name:
+                # from ipdb import set_trace as bp
+                # bp()
+                self.record_metric(
+                    name,
+                    param.detach(),
+                    ReduceType.mean,
+                    namespace="train",
+                )
         if z_batch_loss is not None:
             self.record_metric(
                 "Z loss",

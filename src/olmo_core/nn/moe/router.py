@@ -159,7 +159,7 @@ class MoERouter(nn.Module):
         self.bias_gamma = bias_gamma
         self._cache: Optional[BufferCache] = None
         self.pp_group: Optional[dist.ProcessGroup] = None
-        if self.bias_gamma is not None:
+        if self.bias_gamma is not None: # this is deepseek load balancing strategy
             assert self.bias_gamma > 0
             self.register_buffer("score_bias", torch.zeros(self.num_experts, device=init_device))
             # NOTE: use buffer cache to accumulate 'batch_size_per_expert' and "hide" it from FSDP
@@ -169,7 +169,18 @@ class MoERouter(nn.Module):
             self._cache["batch_size_per_expert"] = torch.zeros(self.num_experts)
         else:
             self.register_buffer("score_bias", None)
-
+        
+        # swj: add bias for expert 2
+        self.expert2_bias = nn.Parameter(torch.empty(1, device=init_device))
+        
+        # Create and properly initialize expert2_bias before registration
+        # bias_tensor = torch.empty(1, device=init_device)
+        # nn.init.trunc_normal_(bias_tensor, std=0.02, a=-3 * 0.02, b=0.0)
+        # self.register_parameter("expert2_bias", nn.Parameter(bias_tensor))
+        # self.reset_parameters()
+        # from ipdb import set_trace as bp
+        # bp()
+   
     def reset_parameters(self):
         if self.bias_gamma is not None:
             assert self.score_bias is not None
@@ -178,7 +189,8 @@ class MoERouter(nn.Module):
             score_bias.zero_()
             self._cache["batch_size_per_expert"] = torch.zeros(
                 self.num_experts, device=score_bias.device
-            )
+           )
+        nn.init.trunc_normal_(self.expert2_bias, std=0.02, a=-3 * 0.02, b=0)
 
     def _accumulate_batch_size_per_expert(self, batch_size_per_expert: torch.Tensor):
         if self.bias_gamma is None or not self.training:
@@ -274,8 +286,14 @@ class MoERouter(nn.Module):
         # from ipdb import set_trace as bp
         # bp()
         # shape: (batch_size * seq_len, num_experts)
-        print("average logits: ", torch.mean(logits[:, 0], dim=0))
-        logits[:, 0] += 0.1
+        # print("average logits: ", torch.mean(logits[:, 0], dim=0))
+        # logits[:, 0] += 0.1
+        # swj: add bias for expert 2
+        print("logits: ", logits)
+        print("self.expert2_bias: ", self.expert2_bias)
+        constrained_bias = torch.minimum(self.expert2_bias, torch.tensor(0.0, device=self.expert2_bias.device))
+        logits[:, 1] += constrained_bias
+
         scores = logits.softmax(dim=-1)
         # shape: (batch_size * seq_len, top_k)
         expert_weights, expert_indices = self.get_top_k(scores)
@@ -327,11 +345,17 @@ class MoELinearRouter(MoERouter):
         self.weight = nn.Parameter(
             torch.empty(self.num_experts * self.d_model, device=init_device, dtype=dtype)
         )
+        # from ipdb import set_trace as bp
+        # bp()
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         super().reset_parameters()
         nn.init.trunc_normal_(self.weight, std=0.02, a=-3 * 0.02, b=3 * 0.02)
+        # from ipdb import set_trace as bp
+        # bp()
+        # nn.init.trunc_normal_(self.expert2_bias, std=0.02, a=-3 * 0.02, b=0)
+
 
     def extra_repr(self):
         return f"in_features={self.d_model}, num_experts={self.num_experts}"
