@@ -4,7 +4,7 @@ Example script to convert a OLMo Core model checkpoint to a HuggingFace model ch
 Note that this script is architecture-dependent, meaning it may only work for OLMo Core model
 architectures that have support in the `transformers` library.
 """
-
+from ipdb import set_trace as bp
 import json
 import logging
 from argparse import ArgumentParser
@@ -86,6 +86,7 @@ def convert_checkpoint_to_hf(
         )
         model_state_dict = dist_cp_sd.get_model_state_dict(model, options=state_dict_options)
 
+        bp()
         save_hf_model(
             output_path,
             model_state_dict,
