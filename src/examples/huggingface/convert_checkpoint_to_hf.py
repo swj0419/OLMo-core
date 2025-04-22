@@ -1,32 +1,35 @@
 """
 Example script to convert a OLMo Core model checkpoint to a HuggingFace model checkpoint.
 
-Note that this script is architecture-dependent, meaning it may only work for OLMo Core model
-architectures that have support in the `transformers` library.
+Note that this script is architecture-dependent, meaning it may only work for OLMo Core models that
+have support in the `transformers` library.
 """
 from ipdb import set_trace as bp
 import json
 import logging
+import types
 from argparse import ArgumentParser
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import torch
-import torch.distributed.checkpoint.state_dict as dist_cp_sd
 from cached_path import cached_path
+from torch.distributed import DeviceMesh
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from olmo_core.aliases import PathOrStr
 from olmo_core.data.tokenizer import TokenizerConfig
-from olmo_core.distributed.checkpoint import load_model_and_optim_state
 from olmo_core.io import file_exists
 from olmo_core.nn.conversion.state_mapping import TemplatePlaceholder
 from olmo_core.nn.hf.checkpoint import save_hf_model
 from olmo_core.nn.hf.convert import get_converter_to_hf
 from olmo_core.nn.transformer.config import TransformerConfig
 from olmo_core.nn.transformer.model import Transformer
+from olmo_core.optim.adamw import AdamWConfig
+from olmo_core.train.checkpoint import CheckpointerConfig
+from olmo_core.train.train_module.transformer import TransformerTrainModuleConfig
 from olmo_core.utils import get_default_device, prepare_cli_environment
 
 log = logging.getLogger(__name__)
@@ -67,33 +70,65 @@ def convert_checkpoint_to_hf(
         del transformer_config_dict["float8_config"]
 
     model = TransformerConfig.from_dict(transformer_config_dict).build()
+    bp()
+    # Replace weight init with an efficient alternative that just allocates memory
+    @torch.no_grad()
+    def init_weights(
+        self: Transformer,
+        *,
+        max_seq_len: Optional[int] = None,
+        max_local_microbatch_size: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        pp_mesh: Optional[DeviceMesh] = None,
+    ) -> torch.Generator:
+        """
+        Initialize the model weights.
+
+        :param max_seq_len: The maximum sequence length expected. This is used
+            to warm up the RoPE cache.
+        :param max_local_microbatch_size: The maximum local (rank) micro-batch size (in tokens)
+            expected. This is used to warm-up some MoE cache.
+        :param device: The device the local copy of the model will be trained on.
+        :param pp_mesh: Pipeline parallel mesh. Pass this when using pipeline parallelism
+            to ensure the weights are initialized differently for different stages.
+        """
+        device = device or self.device
+        self.to_empty(device=device)
+
+        for module in self.modules():
+            if hasattr(module, "reset_parameters"):
+                module.to_empty(device=device)  # type: ignore
+
+        seed = self.init_seed
+        if pp_mesh is not None:
+            seed += pp_mesh.get_local_rank()
+        return torch.Generator(device).manual_seed(seed)
+
+    model.init_weights = types.MethodType(init_weights, model)
+
     device = device or get_default_device()
-    model.to_empty(device=device)
+    train_module = TransformerTrainModuleConfig(
+        rank_microbatch_size=max_sequence_length,
+        max_sequence_length=max_sequence_length,
+        optim=AdamWConfig(),
+    ).build(model, device=device)
 
     tokenizer_config = TokenizerConfig.from_dict(tokenizer_config_dict)
-    vocab_size = tokenizer_config.vocab_size
 
     with TemporaryDirectory() as work_dir:
-        log.info(f"Loading checkpoint from '{original_checkpoint_path}'")
-        load_model_and_optim_state(
-            original_checkpoint_path,
-            model,
-            work_dir=work_dir,
-        )
-        log.info(f"Saving checkpoint to '{output_path}'")
-        state_dict_options = dist_cp_sd.StateDictOptions(
-            flatten_optimizer_state_dict=True, cpu_offload=True
-        )
-        model_state_dict = dist_cp_sd.get_model_state_dict(model, options=state_dict_options)
+        checkpointer_config = CheckpointerConfig(work_dir=work_dir, save_overwrite=True)
+        checkpointer = checkpointer_config.build()
 
-        bp()
+        log.info(f"Loading checkpoint from '{original_checkpoint_path}'")
+        checkpointer.load(original_checkpoint_path, train_module, load_trainer_state=False)
+        log.info(f"Saving checkpoint to '{output_path}'")
         save_hf_model(
             output_path,
-            model_state_dict,
-            model,
-            vocab_size=vocab_size,
-            work_dir=work_dir,
-            save_overwrite=True,
+            train_module.state_dict_to_save(optim=False)["model"],
+            train_module.model,
+            process_group=checkpointer.process_group,
+            work_dir=checkpointer.work_dir,
+            save_overwrite=checkpointer.save_overwrite,
         )
         # checkpointer.save(output_path, train_module, train_state={}, format=output_format)
         log.info(f"Successfully saved converted model to '{output_path}'")
@@ -116,37 +151,33 @@ def convert_checkpoint_to_hf(
 
 
 def _register_debug_hooks(hf_model: torch.nn.Module, model: Transformer):
-    MAX_DIM_SIZE = 1_000_000
+    MAX_DIM_SIZE = 100_000
 
-    olmo_core_debug_state: Dict[str, Tuple[int, torch.Tensor]] = {}
-    hf_debug_state: Dict[str, Tuple[int, torch.Tensor]] = {}
+    olmo_core_state = {}
+    hf_state = {}
 
-    def module_hook(
-        debug_state: Dict[str, Tuple[int, torch.Tensor]],
-        name: str,
-        _: torch.nn.Module,
-        args,
-        output,
-    ):
+    def module_hook(state: Dict, name: str, _: torch.nn.Module, args, output):
+        # if isinstance()
+        # log.info(f"{name}")
         if len(args) >= 1 and isinstance(args[0], torch.Tensor):
             state_name = f"{name}|input"
             input = args[0].detach()
             for i, size in enumerate(input.shape):
                 input = input.narrow(i, 0, min(size, MAX_DIM_SIZE))
-            debug_state[state_name] = (len(debug_state), input.float())
+            state[state_name] = (len(state), input.float())
         if isinstance(output, torch.Tensor):
             state_name = f"{name}|output"
             output = output.detach()
             for i, size in enumerate(output.shape):
                 output = output.narrow(i, 0, min(size, MAX_DIM_SIZE))
-            debug_state[state_name] = (len(debug_state), output.float())
+            state[state_name] = (len(state), output.float())
 
     for name, module in model.named_modules():
-        module.register_forward_hook(partial(module_hook, olmo_core_debug_state, name))
+        module.register_forward_hook(partial(module_hook, olmo_core_state, name))
     for name, module in hf_model.named_modules():
-        module.register_forward_hook(partial(module_hook, hf_debug_state, name))
+        module.register_forward_hook(partial(module_hook, hf_state, name))
 
-    return olmo_core_debug_state, hf_debug_state
+    return olmo_core_state, hf_state
 
 
 def validate_conversion(
@@ -224,16 +255,11 @@ def validate_conversion(
 
             _, hf_tensor = hf_state[hf_state_name]
 
-            if olmo_core_tensor.shape != hf_tensor.shape:
-                log.info(
-                    f"{olmo_core_state_name}, {hf_state_name} shape mismatch: {olmo_core_tensor.shape} {hf_tensor.shape}"
-                )
-            else:
-                log.info(
-                    f"{olmo_core_state_name}, {hf_state_name} norm diff: {torch.norm(olmo_core_tensor - hf_tensor)}"
-                )
+            log.info(
+                f"{olmo_core_state_name}, {hf_state_name} norm diff: {torch.norm(olmo_core_tensor - hf_tensor)}"
+            )
 
-    torch.testing.assert_close(hf_logits[..., :vocab_size], logits[..., :vocab_size])
+    torch.testing.assert_close(hf_logits, logits)
 
 
 def load_config(checkpoint_input_dir: PathOrStr) -> Optional[dict]:
@@ -253,45 +279,13 @@ def load_config(checkpoint_input_dir: PathOrStr) -> Optional[dict]:
 
 def parse_args():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-i",
-        "--checkpoint-input-path",
-        type=str,
-        required=True,
-        help="Local or remote directory containing the OLMo Core checkpoint.",
-    )
+    parser.add_argument("-i", "--checkpoint-input-path", type=str, required=True)
 
-    parser.add_argument(
-        "-o",
-        "--huggingface-output-dir",
-        type=Path,
-        required=True,
-        help="Local or remote directory where the converted checkpoint should be saved.",
-    )
-    parser.add_argument(
-        "-s",
-        "--max-sequence-length",
-        type=int,
-        required=True,
-        help="Max sequence length supported by the model.",
-    )
-    parser.add_argument(
-        "--skip-validation",
-        dest="validate",
-        action="store_false",
-        help="If set, validation to check that the converted model matches the original model is skipped.",
-    )
-    parser.add_argument(
-        "--debug",
-        dest="debug",
-        action="store_true",
-        help="If set, debug information of validation is output.",
-    )
-    parser.add_argument(
-        "--device",
-        type=torch.device,
-        help="The device on which conversion and validation occurs. Defaults to CUDA or MPS if available and initialized.",
-    )
+    parser.add_argument("-o", "--huggingface-output-dir", type=Path, required=True)
+    parser.add_argument("-s", "--max-sequence-length", type=int, required=True)
+    parser.add_argument("--skip-validation", dest="validate", action="store_false")
+    parser.add_argument("--debug", dest="debug", action="store_true")
+    parser.add_argument("--device", type=torch.device)
     return parser.parse_args()
 
 
