@@ -161,6 +161,9 @@ class MoEBase(nn.Module):
 
         self._ep_enabled = False
 
+        # Initialize self.losses as an empty list if no losses are provided
+        self.losses = [] if lb_loss_weight is None and z_loss_weight is None else self.losses
+
     @property
     def num_experts(self) -> int:
         return self.router.num_experts
@@ -211,10 +214,10 @@ class MoEBase(nn.Module):
     def compute_losses(
         self, total_bz: Union[int, float, torch.Tensor], reset: bool = True, step: int = 0
     ) -> Dict[str, torch.Tensor]:
-        out: Dict[str, torch.Tensor] = {}
-        # from ipdb import set_trace as bp; bp()
+        out = {}
+        if not self.losses:  # Check if self.losses is empty or None
+            return out
         for loss_fn in self.losses:
-            # from ipdb import set_trace as bp; bp()
             out.update(loss_fn.compute(total_bz, reset=reset, step=step))
         return out
 
