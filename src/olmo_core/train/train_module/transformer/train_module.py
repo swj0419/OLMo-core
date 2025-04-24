@@ -354,7 +354,7 @@ class TransformerTrainModule(TrainModule):
                 # from ipdb import set_trace as bp; bp()
                 # Optionally get model auxiliary losses and update the total batch auxiliary losses.
                 # print("no pipelien step: ", self.trainer.global_step)
-                print("self.trainer.global_step: ", self.trainer.global_step)
+                # print("self.trainer.global_step: ", self.trainer.global_step)
                 auxiliary_losses = self.model.compute_auxiliary_losses(
                     batch_num_tokens_for_loss, reset=True, step=self.trainer.global_step
                 )
