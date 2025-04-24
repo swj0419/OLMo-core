@@ -361,9 +361,9 @@ class TransformerTrainModule(TrainModule):
                 for loss_name, loss_val in auxiliary_losses.items():
                     # from ipdb import set_trace as bp; bp()
                     # swj
-                    if loss_name.startswith("expert_"):
-                        auxiliary_batch_losses[loss_name] = loss_val
-                        continue
+                    # if loss_name.startswith("expert_"):
+                    #     auxiliary_batch_losses[loss_name] = loss_val
+                    #     continue
                     loss += loss_val
                     loss_val = get_local_tensor(loss_val.detach())
                     if loss_name in auxiliary_batch_losses:

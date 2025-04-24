@@ -70,7 +70,7 @@ def convert_checkpoint_to_hf(
         del transformer_config_dict["float8_config"]
 
     model = TransformerConfig.from_dict(transformer_config_dict).build()
-    bp()
+    # bp()
     # Replace weight init with an efficient alternative that just allocates memory
     @torch.no_grad()
     def init_weights(
