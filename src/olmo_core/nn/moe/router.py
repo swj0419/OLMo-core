@@ -172,7 +172,7 @@ class MoERouter(nn.Module):
         
         # swj: add bias for expert 2
         # self.expert2_bias = nn.Parameter(torch.empty(1, device=init_device))
-        self.expert_bias = nn.Parameter(torch.empty(self.num_experts-1, 1, device=init_device))
+        # self.expert_bias = nn.Parameter(torch.empty(self.num_experts-1, 1, device=init_device))
 
         # Create and properly initialize expert2_bias before registration
         # bias_tensor = torch.empty(1, device=init_device)
@@ -191,7 +191,7 @@ class MoERouter(nn.Module):
             self._cache["batch_size_per_expert"] = torch.zeros(
                 self.num_experts, device=score_bias.device
            )
-        nn.init.trunc_normal_(self.expert_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
+        # nn.init.trunc_normal_(self.expert_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
         # nn.init.trunc_normal_(self.expert2_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
 
     def _accumulate_batch_size_per_expert(self, batch_size_per_expert: torch.Tensor):
@@ -287,8 +287,8 @@ class MoERouter(nn.Module):
         
         # from ipdb import set_trace as bp
         # bp()
-        constrained_bias = torch.minimum(self.expert_bias, torch.tensor(0.0, device=self.expert_bias.device))
-        logits[:, 1:] += constrained_bias.T
+        # constrained_bias = torch.minimum(self.expert_bias, torch.tensor(0.0, device=self.expert_bias.device))
+        # logits[:, 1:] += constrained_bias.T
 
         # previous
         # constrained_bias = torch.minimum(self.expert2_bias, torch.tensor(0.0, device=self.expert2_bias.device))
