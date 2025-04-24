@@ -426,18 +426,18 @@ class TransformerTrainModule(TrainModule):
                 namespace="train",
             )
         
-                # record expert2_bias 
-        for name, param in self.model.named_parameters():
-            if "expert2_bias" in name:
-                # from ipdb import set_trace as bp
-                # bp()
-                print(f"{name}: {param.detach()}")
-                self.record_metric(
-                    name,
-                    param.detach(),
-                    ReduceType.mean,
-                    namespace="train",
-                )
+        #         # record expert2_bias 
+        # for name, param in self.model.named_parameters():
+        #     if "expert2_bias" in name:
+        #         # from ipdb import set_trace as bp
+        #         # bp()
+        #         print(f"{name}: {param.detach()}")
+        #         self.record_metric(
+        #             name,
+        #             param.detach(),
+        #             ReduceType.mean,
+        #             namespace="train",
+        #         )
 
     def eval_batch(
         self, batch: Dict[str, Any], labels: Optional[torch.Tensor] = None
