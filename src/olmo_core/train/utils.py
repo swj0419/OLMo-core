@@ -131,35 +131,30 @@ def move_metrics(
         # even when both point to the same physical device.
         if m.device.type != device.type
     ]
-    if not all(m.numel() > 0 for m in metrics_to_move_list):
-        # Option 1: Filter out empty tensors
-        metrics_to_move_list = [m for m in metrics_to_move_list if m.numel() > 0]
-        if not metrics_to_move_list:
-            # Return a default tensor if all are empty
-            return torch.tensor(0.0, device=device)
-        
-        # Option 2: Replace empty tensors with zeros of the right shape
-        # non_empty = next((m for m in metrics_to_move_list if m.numel() > 0), None)
-        # if non_empty is not None:
-        #     metrics_to_move_list = [
-        #         m if m.numel() > 0 else torch.zeros_like(non_empty) 
-        #         for m in metrics_to_move_list
-        #     ]
     
-    # Now stack the tensors (they should all have the same shape now)
-    metrics_to_move = move_to_device(torch.stack(metrics_to_move_list), device)
+    # Handle empty tensors
+    if metrics_to_move_list:
+        # Filter out empty tensors
+        non_empty_metrics = [m for m in metrics_to_move_list if m.numel() > 0]
+        
+        if non_empty_metrics:
+            metrics_to_move = move_to_device(torch.stack(non_empty_metrics), device)
+        else:
+            metrics_to_move = None
+    else:
+        metrics_to_move = None
 
     # Collect output with moved tensors.
     target: Dict[int, Dict[str, torch.Tensor]] = OrderedDict()
     idx = 0
     for step, step_metrics in source.items():
+        target[step] = OrderedDict()
         for name, m in step_metrics.items():
-            if step not in target:
-                target[step] = OrderedDict()
-            if metrics_to_move is not None and m.device.type != device.type:
+            if metrics_to_move is not None and m.device.type != device.type and m.numel() > 0:
                 target[step][name] = metrics_to_move[idx]
                 idx += 1
             else:
+                # Keep original tensor if it's already on the right device or is empty
                 target[step][name] = m
 
     return target
