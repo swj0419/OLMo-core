@@ -294,7 +294,7 @@ class MoERouter(nn.Module):
         # constrained_bias = torch.minimum(self.expert2_bias, torch.tensor(0.0, device=self.expert2_bias.device))
         # logits[:, 1] += constrained_bias
 
-        logits[:, 1:] += self.expert_bias
+        logits[:, 1:] += self.expert_bias.T
 
         scores = logits.softmax(dim=-1)
         # shape: (batch_size * seq_len, top_k)
