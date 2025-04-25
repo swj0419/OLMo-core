@@ -172,7 +172,7 @@ class MoERouter(nn.Module):
         
         # swj: add bias for expert 2
         # self.expert2_bias = nn.Parameter(torch.empty(1, device=init_device))
-        # self.expert_bias = nn.Parameter(torch.empty(self.num_experts-1, 1, device=init_device))
+        self.expert_bias = nn.Parameter(torch.empty(self.num_experts-1, 1, device=init_device))
 
         # Create and properly initialize expert2_bias before registration
         # bias_tensor = torch.empty(1, device=init_device)
@@ -192,7 +192,7 @@ class MoERouter(nn.Module):
                 self.num_experts, device=score_bias.device
            )
         # nn.init.trunc_normal_(self.expert_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
-        # nn.init.trunc_normal_(self.expert2_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
+        nn.init.trunc_normal_(self.expert_bias, mean=0, std=0.02, a=-1, b=1)
 
     def _accumulate_batch_size_per_expert(self, batch_size_per_expert: torch.Tensor):
         if self.bias_gamma is None or not self.training:
@@ -293,6 +293,8 @@ class MoERouter(nn.Module):
         # previous
         # constrained_bias = torch.minimum(self.expert2_bias, torch.tensor(0.0, device=self.expert2_bias.device))
         # logits[:, 1] += constrained_bias
+
+        logits[:, 1:] += self.expert_bias.T
 
         scores = logits.softmax(dim=-1)
         # shape: (batch_size * seq_len, top_k)
