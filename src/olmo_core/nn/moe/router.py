@@ -191,7 +191,7 @@ class MoERouter(nn.Module):
             self._cache["batch_size_per_expert"] = torch.zeros(
                 self.num_experts, device=score_bias.device
            )
-        nn.init.trunc_normal_(self.expert_bias, mean=-0.1, std=0.02, a=-1 * 1, b=0)
+        nn.init.trunc_normal_(self.expert_bias, mean=-0, std=0.02, a=-1 * 1, b=0)
         # nn.init.trunc_normal_(self.expert_bias, mean=0, std=0.02, a=-1, b=1)
 
     def _accumulate_batch_size_per_expert(self, batch_size_per_expert: torch.Tensor):
