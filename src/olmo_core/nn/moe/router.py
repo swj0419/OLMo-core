@@ -282,11 +282,13 @@ class MoERouter(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.jitter(x)
 
+        from ipdb import set_trace as bp
+        bp()
+
         # shape: (batch_size * seq_len, num_experts)
         logits = self.get_expert_logits(x).view(-1, self.num_experts)
         
-        # from ipdb import set_trace as bp
-        # bp()
+
 
 
         # previous
