@@ -282,18 +282,15 @@ class MoERouter(nn.Module):
         # shape: (batch_size, seq_len, d_model)
         x = self.jitter(x)
 
-        from ipdb import set_trace as bp
-        bp()
-
+        # from ipdb import set_trace as bp
+        # bp()
+# 
         # shape: (batch_size * seq_len, num_experts)
         logits = self.get_expert_logits(x).view(-1, self.num_experts)
         
-
-
-
         # previous
         constrained_bias = torch.minimum(self.expert_bias, torch.tensor(0.0, device=self.expert_bias.device))
-        logits[:, 1] += constrained_bias.T
+        logits[:, 1:] += constrained_bias.T
 
         # logits[:, 1:] += self.expert_bias.T
 
