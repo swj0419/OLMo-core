@@ -570,6 +570,7 @@ class Trainer:
             and not self.checkpoint_loaded
             and self.load_strategy != LoadStrategy.never
         ):
+            print("Try loading from the save folder first.")
             # Try loading from the save folder first.
             self.maybe_load_checkpoint(self.save_folder)
 
@@ -728,6 +729,7 @@ class Trainer:
 
         # NOTE: to avoid making a ton of client requests (S3 or otherwise) we only make those
         # requests from rank 0 then scatter the result to the other ranks.
+        print("self.checkpointer.dir_is_checkpoint(dir): ",  self.checkpointer.dir_is_checkpoint(dir))
         if get_rank() == 0 and not self.checkpointer.dir_is_checkpoint(dir):
             # Try to find the latest checkpoint in the directory.
             dir = self.checkpointer.latest_checkpoint(dir)
@@ -763,6 +765,7 @@ class Trainer:
         if get_rank() == 0:
             should_load = self.checkpointer.contains_checkpoint(dir)
         should_load = scatter_object(should_load)
+        print("should_load: ", should_load)
         if should_load:
             self.load_checkpoint(
                 dir,
