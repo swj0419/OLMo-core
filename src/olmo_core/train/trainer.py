@@ -733,8 +733,9 @@ class Trainer:
         if get_rank() == 0 and not self.checkpointer.dir_is_checkpoint(dir):
             # Try to find the latest checkpoint in the directory.
             dir = self.checkpointer.latest_checkpoint(dir)
+            print("dir: ", dir)
         dir = scatter_object(dir)
-
+        print("dir after scatter: ", dir)
         log.info(f"Loading checkpoint from '{dir}'...")
         trainer_state = self.checkpointer.load(
             dir,
