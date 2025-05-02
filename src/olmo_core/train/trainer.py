@@ -765,8 +765,9 @@ class Trainer:
         should_load: bool = True
         if get_rank() == 0:
             should_load = self.checkpointer.contains_checkpoint(dir)
+        print("should_load before scatter: ", should_load)
         should_load = scatter_object(should_load)
-        print("should_load: ", should_load)
+        print("should_load after scatter: ", should_load)
         if should_load:
             self.load_checkpoint(
                 dir,
