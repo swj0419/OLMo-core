@@ -322,6 +322,7 @@ class DroplessMoEMLP(MoEMLPBase):
         # swj hack
         # bp()
         # batch_size_per_expert = torch.tensor([16384]*4, device=x.device)
+        print("batch_size_per_expert: ", batch_size_per_expert)
         w1, w2, w3 = (
             get_local_tensor(
                 self.scale_grad(self.w1).view(self.num_experts, self.hidden_size, self.d_model)
