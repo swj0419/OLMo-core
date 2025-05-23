@@ -25,7 +25,7 @@ import torch
 import torch.distributed as dist
 # swj
 from ipdb import set_trace as bp
-from opacus import PrivacyEngine
+from fastDP import PrivacyEngine
 
 from ..aliases import PathOrStr
 from ..data import DataLoaderBase
@@ -263,25 +263,25 @@ class Trainer:
     _metrics_consistent: Optional[bool] = None
 
     # swj dp related parameters
-    use_dp_privacy: bool = False
+    use_dp_privacy: bool = True
     """
     Whether to enable Opacus differential privacy training.
     """
-    dp_noise_multiplier: float = 0.5
+    dp_target_epsilon: float = 2.0
     """
-    Noise multiplier for Opacus PrivacyEngine.
+    Target epsilon for fastDP PrivacyEngine.
     """
-    dp_max_grad_norm: float = 1.0
+    dp_clipping_fn: str = 'automatic'
     """
-    Max grad norm for Opacus PrivacyEngine.
+    Clipping function for fastDP PrivacyEngine.
     """
-    dp_secure_rng: bool = False
+    dp_clipping_mode: str = 'MixOpt'
     """
-    Enable secure RNG for Opacus PrivacyEngine.
+    Clipping mode for fastDP PrivacyEngine.
     """
-    dp_delta: float = 1e-5
+    dp_clipping_style: str = 'all-layer'
     """
-    Target delta for Opacus PrivacyEngine epsilon computation.
+    Clipping style for fastDP PrivacyEngine.
     """
     privacy_engine: Optional[PrivacyEngine] = field(default=None, init=False)
 
@@ -367,20 +367,26 @@ class Trainer:
 
         self.train_module._attach_trainer(self)
 
-        # swj
+        # swj hack
         # Opacus DP integration
         print("use_dp_privacy: ", self.use_dp_privacy)
         if self.use_dp_privacy:
-            self.privacy_engine = PrivacyEngine(secure_mode=self.dp_secure_rng)
-            # bp()
-            self.train_module.model, self.train_module.optim, self.data_loader_ = self.privacy_engine.make_private(
-                module=self.train_module.model,
-                optimizer=self.train_module.optim,
-                data_loader=self.data_loader,
-                noise_multiplier=self.dp_noise_multiplier,
-                max_grad_norm=self.dp_max_grad_norm,
+            batch_size = 64
+            sample_size = len(self.data_loader.dataset)
+            epochs = self.max_duration.value if hasattr(self.max_duration, 'value') else 1
+
+            self.privacy_engine = PrivacyEngine(
+                self.train_module.model,
+                batch_size=batch_size,
+                sample_size=sample_size,
+                epochs=epochs,
+                target_epsilon=self.dp_target_epsilon,
+                clipping_fn=self.dp_clipping_fn,
+                clipping_mode=self.dp_clipping_mode,
+                origin_params=None,
+                clipping_style=self.dp_clipping_style,
             )
-            # bp()
+            self.privacy_engine.attach(self.train_module.optim)
 
     @property
     def global_batch_size(self) -> int:
@@ -1214,8 +1220,8 @@ class Trainer:
             # swj log every step
             # Log DP epsilon if enabled
             if self.use_dp_privacy and self.privacy_engine is not None:
-                epsilon = self.privacy_engine.accountant.get_epsilon(delta=self.dp_delta)
-                log.info(f"[DP] Epoch {self.epoch} (ε = {epsilon:.2f}, δ = {self.dp_delta})")
+                epsilon = self.privacy_engine.accountant.get_epsilon(delta=self.dp_target_epsilon)
+                log.info(f"[DP] Epoch {self.epoch} (ε = {epsilon:.2f}, δ = {self.dp_target_epsilon})")
 
 
             first_batch = False
