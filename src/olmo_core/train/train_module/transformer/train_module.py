@@ -3,7 +3,7 @@ import logging
 from dataclasses import replace
 from functools import cached_property
 from typing import Any, Dict, Generator, Optional, Tuple, Union
-
+from ipdb import set_trace as bp
 import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
@@ -355,9 +355,13 @@ class TransformerTrainModule(TrainModule):
                 # Optionally get model auxiliary losses and update the total batch auxiliary losses.
                 # print("no pipelien step: ", self.trainer.global_step)
                 # print("self.trainer.global_step: ", self.trainer.global_step)
-                auxiliary_losses = self.model.compute_auxiliary_losses(
-                    batch_num_tokens_for_loss, reset=True, step=self.trainer.global_step,
-                )
+                '''
+                swj change for opacus
+                '''
+                # bp()
+                auxiliary_losses = self.model._module.compute_auxiliary_losses(batch_num_tokens_for_loss, reset=True, step=self.trainer.global_step)
+                # auxiliary_losses = self.model.compute_auxiliary_losses(batch_num_tokens_for_loss, reset=True, step=self.trainer.global_step,)
+               
                 for loss_name, loss_val in auxiliary_losses.items():
                     # from ipdb import set_trace as bp; bp()
                     # swj
@@ -371,7 +375,7 @@ class TransformerTrainModule(TrainModule):
                     else:
                         auxiliary_batch_losses[loss_name] = loss_val
                 del auxiliary_losses
-
+                
                 # Run backward pass.
                 loss.backward()
 

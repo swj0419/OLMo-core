@@ -702,6 +702,41 @@ class NumpyFSLDataLoader(NumpyDataLoaderBase):
                 "is not supported"
             )
 
+    @property
+    def pin_memory(self):
+        # Return True/False depending on your use case, or make it configurable
+        return False
+
+    @property
+    def collate_fn(self):
+        def _collate_fn(batch):
+            return self.collator(batch)
+        return _collate_fn
+    
+    @property
+    def drop_last(self):
+        return False  # or True if you want to drop the last incomplete batch
+
+    @property
+    def timeout(self):
+        return 0  # default PyTorch DataLoader timeout
+
+    @property
+    def worker_init_fn(self):
+        return None  # default PyTorch DataLoader worker_init_fn
+    
+    @property
+    def multiprocessing_context(self):
+        return None  # default PyTorch DataLoader multiprocessing_context
+
+    @property
+    def generator(self):
+        return None  # default PyTorch DataLoader generator
+
+    @property
+    def persistent_workers(self):
+        return False  # default PyTorch DataLoader persistent_workers
+
 
 class NumpyVSLDataLoader(NumpyDataLoaderBase):
     """

@@ -23,8 +23,6 @@ from typing import (
 
 import torch
 import torch.distributed as dist
-# swj
-from ipdb import set_trace as bp
 from opacus import PrivacyEngine
 
 from ..aliases import PathOrStr
@@ -262,12 +260,11 @@ class Trainer:
     _checkpoint_loaded: bool = False
     _metrics_consistent: Optional[bool] = None
 
-    # swj dp related parameters
-    use_dp_privacy: bool = True
+    use_dp_privacy: bool = False
     """
     Whether to enable Opacus differential privacy training.
     """
-    dp_noise_multiplier: float = 0.5
+    dp_noise_multiplier: float = 1.1
     """
     Noise multiplier for Opacus PrivacyEngine.
     """
@@ -367,19 +364,16 @@ class Trainer:
 
         self.train_module._attach_trainer(self)
 
-        # swj
         # Opacus DP integration
         if self.use_dp_privacy:
             self.privacy_engine = PrivacyEngine(secure_mode=self.dp_secure_rng)
-            # bp()
-            self.train_module.model, self.train_module.optim, self.data_loader_ = self.privacy_engine.make_private(
+            self.train_module.model, self.train_module.optim, self.data_loader = self.privacy_engine.make_private(
                 module=self.train_module.model,
                 optimizer=self.train_module.optim,
                 data_loader=self.data_loader,
                 noise_multiplier=self.dp_noise_multiplier,
                 max_grad_norm=self.dp_max_grad_norm,
             )
-            # bp()
 
     @property
     def global_batch_size(self) -> int:
@@ -1176,7 +1170,6 @@ class Trainer:
         self.train_module.zero_grads()
 
         first_batch = True
-
         for batch in self._iter_batches():
             # Bookkeeping.
             self.global_step += 1
@@ -1208,14 +1201,6 @@ class Trainer:
                 self._log_metrics()
                 if torch.cuda.is_available():
                     torch.cuda.set_sync_debug_mode("warn")
-            
-        
-            # swj log every step
-            # Log DP epsilon if enabled
-            if self.use_dp_privacy and self.privacy_engine is not None:
-                epsilon = self.privacy_engine.accountant.get_epsilon(delta=self.dp_delta)
-                log.info(f"[DP] Epoch {self.epoch} (ε = {epsilon:.2f}, δ = {self.dp_delta})")
-
 
             first_batch = False
 
@@ -1229,6 +1214,11 @@ class Trainer:
         self._log_metrics()
 
         log.info("Epoch complete")
+
+        # Log DP epsilon if enabled
+        if self.use_dp_privacy and self.privacy_engine is not None:
+            epsilon = self.privacy_engine.accountant.get_epsilon(delta=self.dp_delta)
+            log.info(f"[DP] Epoch {self.epoch} (ε = {epsilon:.2f}, δ = {self.dp_delta})")
 
         for callback in self._iter_callbacks():
             callback.post_epoch()

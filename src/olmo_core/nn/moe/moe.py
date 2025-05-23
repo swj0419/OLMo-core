@@ -2,7 +2,7 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
-
+from ipdb import set_trace as bp
 import torch
 import torch.nn as nn
 from torch.distributed import DeviceMesh
@@ -277,6 +277,7 @@ class MoEBase(nn.Module):
         if self.shared_mlp is not None:
             shared_out = self.shared_mlp(x)
 
+        # bp()
         out = self.experts(x, expert_weights, expert_indices, batch_size_per_expert)
 
         if shared_out is not None:

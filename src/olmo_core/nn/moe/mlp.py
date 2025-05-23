@@ -2,7 +2,7 @@ import logging
 import math
 import warnings
 from typing import Any, Callable, List, Optional
-
+from ipdb import set_trace as bp
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -274,6 +274,7 @@ class DroplessMoEMLP(MoEMLPBase):
                 "https://github.com/tgale96/grouped_gemm"
             )
         self.reset_parameters()
+        self.batch_size_per_expert = torch.tensor([16384]*4, device="cuda:0")
 
     def reset_parameters(self) -> None:
         # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
@@ -292,13 +293,17 @@ class DroplessMoEMLP(MoEMLPBase):
         else:
             out = []
             start = 0
-            for i, size in enumerate(batch_sizes.cpu().numpy()):
+            # bp()
+            # swj hack
+            for i, size in enumerate([16384]*4):
+            # for i, size in enumerate(batch_sizes.cpu().numpy()):
                 rhs = w[i, :, :].t() if trans_b else w[i, :, :]
                 out.append(x[start : start + size, :] @ rhs)
                 start += size
             return torch.cat(out)
-
-    def forward(self, x: torch.Tensor, batch_size_per_expert: torch.Tensor) -> torch.Tensor:
+        
+    # swj hack: batch_size_per_expert: torch.Tensor
+    def forward(self, x: torch.Tensor, batch_size_per_expert=None) -> torch.Tensor:
         """
         Compute the expert outputs.
 
@@ -308,6 +313,15 @@ class DroplessMoEMLP(MoEMLPBase):
         """
         # Scale gradients and get local tensors (in case of expert parallelism).
         # shape (all): (num_local_experts, hidden_size, d_model)
+        # swj hack for opacus
+        # bp()
+        # if batch_size_per_expert is None:
+        #     batch_size_per_expert = self.batch_size_per_expert
+        # else:
+        #     self.batch_size_per_expert = batch_size_per_expert
+        # swj hack
+        # bp()
+        # batch_size_per_expert = torch.tensor([16384]*4, device=x.device)
         w1, w2, w3 = (
             get_local_tensor(
                 self.scale_grad(self.w1).view(self.num_experts, self.hidden_size, self.d_model)
@@ -321,7 +335,7 @@ class DroplessMoEMLP(MoEMLPBase):
         )
 
         # Compute the MLP.
-        x1 = self.gmm(x, w1, batch_size_per_expert, trans_b=True)
-        x2 = self.gmm(x, w3, batch_size_per_expert, trans_b=True)
+        x1 = self.gmm(x, w1, self.batch_size_per_expert, trans_b=True)
+        x2 = self.gmm(x, w3, self.batch_size_per_expert, trans_b=True)
         x1 = F.silu(x1) * x2
-        return self.gmm(x1, w2, batch_size_per_expert)
+        return self.gmm(x1, w2, self.batch_size_per_expert)

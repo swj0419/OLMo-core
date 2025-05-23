@@ -185,10 +185,11 @@ class CheckpointerCallback(Callback):
             self.checkpointer.process_group = dist.new_group(timeout=timedelta(minutes=30))
 
         # Maybe save a pre-train checkpoint.
-        if self.step == 0 and (
+        # swj: skip saving pre-train checkpoint: self.step == 0 and
+        if (
             self.pre_train_checkpoint
             or (self.pre_train_checkpoint is None and not self.trainer.checkpoint_loaded)
-        ):
+        ) and self.step > 0:
             self._checkpoints.append(self._save_checkpoint())
 
         # Collect existing ephemeral checkpoints from previous runs.
