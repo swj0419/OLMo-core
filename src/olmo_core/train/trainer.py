@@ -369,6 +369,7 @@ class Trainer:
 
         # swj
         # Opacus DP integration
+        print("use_dp_privacy: ", self.use_dp_privacy)
         if self.use_dp_privacy:
             self.privacy_engine = PrivacyEngine(secure_mode=self.dp_secure_rng)
             # bp()
