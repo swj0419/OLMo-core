@@ -295,15 +295,15 @@ class DroplessMoEMLP(MoEMLPBase):
             start = 0
             # bp()
             # swj hack
-            for i, size in enumerate([16384]*4):
-            # for i, size in enumerate(batch_sizes.cpu().numpy()):
+            # for i, size in enumerate([16384]*4):
+            for i, size in enumerate(batch_sizes.cpu().numpy()):
                 rhs = w[i, :, :].t() if trans_b else w[i, :, :]
                 out.append(x[start : start + size, :] @ rhs)
                 start += size
             return torch.cat(out)
         
     # swj hack: batch_size_per_expert: torch.Tensor
-    def forward(self, x: torch.Tensor, batch_size_per_expert=None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, batch_size_per_expert: torch.Tensor) -> torch.Tensor:
         """
         Compute the expert outputs.
 
@@ -322,7 +322,7 @@ class DroplessMoEMLP(MoEMLPBase):
         # swj hack
         # bp()
         # batch_size_per_expert = torch.tensor([16384]*4, device=x.device)
-        print("batch_size_per_expert: ", batch_size_per_expert)
+        # print("batch_size_per_expert: ", batch_size_per_expert)
         w1, w2, w3 = (
             get_local_tensor(
                 self.scale_grad(self.w1).view(self.num_experts, self.hidden_size, self.d_model)
