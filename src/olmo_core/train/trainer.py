@@ -263,7 +263,7 @@ class Trainer:
     _metrics_consistent: Optional[bool] = None
 
     # swj dp related parameters
-    use_dp_privacy: bool = False
+    use_dp_privacy: bool = True
     """
     Whether to enable Opacus differential privacy training.
     """
